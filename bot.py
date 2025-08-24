@@ -25,6 +25,9 @@ print(Fore.CYAN + ascii_banner + Style.RESET_ALL)
 
 # Token alma
 token = input(Fore.GREEN + "Bot tokeninizi giriniz: " + Style.RESET_ALL)
+# Owner ID'leri alma
+owner_input = input(Fore.GREEN + "Owner ID giriniz birden fazla olacak ise virgülle ayırabilirsiniz.: " + Style.RESET_ALL)
+OWNER_IDS = [int(x.strip()) for x in owner_input.split(",") if x.strip().isdigit()]
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -35,7 +38,6 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
-OWNER_IDS = [1180445873063342090]
 
 # Çift loglamayı önlemek için global set
 deleted_messages = set()
