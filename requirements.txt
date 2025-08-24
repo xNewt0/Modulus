@@ -1,0 +1,4 @@
+discord.py>=2.3.0
+requests>=2.31.0
+colorama>=0.4.6
+pyfiglet>=0.8.post1
