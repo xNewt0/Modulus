@@ -20,8 +20,28 @@ import pyfiglet
 colorama.init()
 
 # ASCII başlık oluştur
-ascii_banner = pyfiglet.figlet_format("M O D U L U S")
-print(Fore.CYAN + ascii_banner + Style.RESET_ALL)
+print("\033[36m")  # camgöbeği başlat
+print(r"""
+   ▄▄▄▄███▄▄▄▄    ▄██████▄  ████████▄  ███    █▄   ▄█       ███    █▄ 
+ ▄██▀▀▀███▀▀▀██▄ ███    ███ ███   ▀███ ███    ███ ███       ███    ███
+ ███   ███   ███ ███    ███ ███    ███ ███    ███ ███       ███    ███
+ ███   ███   ███ ███    ███ ███    ███ ███    ███ ███       ███    ███
+ ███   ███   ███ ███    ███ ███    ███ ███    ███ ███       ███    ███
+ ███   ███   ███ ███    ███ ███    ███ ███    ███ ███       ███    ███
+ ███   ███   ███ ███    ███ ███   ▄███ ███    ███ ███▌    ▄ ███    ███
+  ▀█   ███   █▀   ▀██████▀  ████████▀  ████████▀  █████▄▄██ ████████▀ 
+                                                  ▀                   
+   ▄████████                                                          
+  ███    ███                                                          
+  ███    █▀                                                           
+  ███                                                                 
+▀███████████                                                          
+         ███                                                          
+   ▄█    ███                                                          
+ ▄████████▀                                                           
+""")
+print("\033[0m")  
+
 
 # Token alma
 token = input(Fore.GREEN + "Bot tokeninizi giriniz: " + Style.RESET_ALL)
