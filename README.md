@@ -89,6 +89,7 @@ Bu bilgileri doğru şekilde girerek botun sorunsuz çalışmasını sağlayabil
 - Kodda değişiklik yaptıktan sonra botu tekrar başlatmanız gerekir.
 - Bot SQLite veritabanını kullanmaktadır. Çok büyük sunucularda daha iyi performans için aiosqlite veya harici bir veritabanı tercih edilebilir.
 - Bot, varsayılan olarak kendi bilgisayarınızda (local) çalıştırılacak şekilde tasarlanmıştır. Ancak dilerseniz VDS (Virtual Dedicated Server) veya bulut tabanlı bir sunucuda da çalıştırabilirsiniz. Bu sayede botunuz 7/24 kesintisiz olarak aktif kalır.
+- Bana Discord üzerinden ulaşabilirsiniz thenewt00
   
 
 
