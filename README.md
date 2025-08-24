@@ -71,10 +71,8 @@ Bu bot, hem **topluluk güvenliğini sağlamak** hem de **eğlenceli bir deneyim
 
 
 # Kurulum ve Kullanım
-`git clone https://github.com/xNewt0/Modulus`
-`cd Modulus`
-`pip install -r requirements.txt`
-`python3 bot.py`
+`git clone https://github.com/xNewt0/Modulus && cd Modulus && pip install -r requirements.txt && python3 bot.py`
+
 
 Kurulumu tamamladıktan ve botu çalıştırdıktan sonra, sizden Bot Tokeni ile birlikte bot üzerinde en yüksek yetkiye sahip kullanıcı(lar)ın Discord ID’leri istenecektir.
 Bu bilgileri doğru şekilde girerek botun sorunsuz çalışmasını sağlayabilirsiniz.
