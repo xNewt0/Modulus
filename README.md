@@ -70,3 +70,14 @@ Bu bot, hem **topluluk güvenliğini sağlamak** hem de **eğlenceli bir deneyim
 | `/soru [metin]` | GPT-4 API ile etkileşime geçer ve yanıt döndürür. |
 
 
+# Kurulum ve Kullanım
+`git clone https://github.com/xNewt0/Modulus`
+`cd Modulus`
+`python3 bot.py`
+
+Kurulumu tamamladıktan ve botu çalıştırdıktan sonra, sizden Bot Tokeni ile birlikte bot üzerinde en yüksek yetkiye sahip kullanıcı(lar)ın Discord ID’leri istenecektir.
+Bu bilgileri doğru şekilde girerek botun sorunsuz çalışmasını sağlayabilirsiniz.
+
+
+
+
