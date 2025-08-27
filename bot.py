@@ -29,8 +29,6 @@ print("\033[36m" + r"""
    ╚═╝     ╚═╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝
                             <3 H""")
 
-
-
 # Token alma
 token = input(Fore.GREEN + "Bot tokeninizi giriniz: " + Style.RESET_ALL)
 # Owner ID'leri alma
@@ -45,7 +43,6 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
-
 
 # Çift loglamayı önlemek için global set
 deleted_messages = set()
@@ -101,9 +98,9 @@ def initialize_database():
         );""",
         """CREATE TABLE IF NOT EXISTS level_config (
             guild_id INTEGER PRIMARY KEY,
-            role1_id INTEGER,
-            role2_id INTEGER,
-            role3_id INTEGER,
+            role5_id INTEGER,
+            role15_id INTEGER,
+            role25_id INTEGER,
             announcement_channels TEXT,
             log_channel_id INTEGER
         );""",
@@ -416,9 +413,9 @@ def get_language_roles(guild_id: int):
 # --- Level Sistemi SQL Fonksiyonları ---
 def set_level_config(
     guild_id: int, 
-    role1_id: int, 
-    role2_id: int, 
-    role3_id: int, 
+    role5_id: int, 
+    role15_id: int, 
+    role25_id: int, 
     announcement_channel_ids: list, 
     log_channel_id: int
 ):
@@ -429,9 +426,9 @@ def set_level_config(
         c = conn.cursor()
         c.execute("""
             INSERT OR REPLACE INTO level_config 
-            (guild_id, role1_id, role2_id, role3_id, announcement_channels, log_channel_id) 
+            (guild_id, role5_id, role15_id, role25_id, announcement_channels, log_channel_id) 
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (guild_id, role1_id, role2_id, role3_id, channels_str, log_channel_id))
+        """, (guild_id, role5_id, role15_id, role25_id, channels_str, log_channel_id))
         conn.commit()
     except Error as e:
         print(f"{Fore.RED}Level konfig ayarlama hatası: {e}{Style.RESET_ALL}")
@@ -444,7 +441,7 @@ def get_level_config(guild_id: int):
     try:
         c = conn.cursor()
         c.execute("""
-            SELECT role1_id, role2_id, role3_id, announcement_channels, log_channel_id 
+            SELECT role5_id, role15_id, role25_id, announcement_channels, log_channel_id 
             FROM level_config 
             WHERE guild_id=?
         """, (guild_id,))
@@ -454,9 +451,9 @@ def get_level_config(guild_id: int):
         channels_str = result[3]
         channel_ids = [int(ch_id) for ch_id in channels_str.split(",")] if channels_str else []
         return {
-            "role1_id": result[0],
-            "role2_id": result[1],
-            "role3_id": result[2],
+            "role5_id": result[0],
+            "role15_id": result[1],
+            "role25_id": result[2],
             "announcement_channel_ids": channel_ids,
             "log_channel_id": result[4]
         }
@@ -531,7 +528,12 @@ def update_user_xp(guild_id: int, user_id: int, xp_delta: int):
         new_xp = max(0, current_xp + xp_delta)
         new_level = calculate_level(new_xp)
         
-        set_user_level(guild_id, user_id, new_xp, new_level)
+        c.execute("""
+            INSERT OR REPLACE INTO user_levels 
+            (guild_id, user_id, xp, level) 
+            VALUES (?, ?, ?, ?)
+        """, (guild_id, user_id, new_xp, new_level))
+        conn.commit()
         return (new_xp, new_level)
     except Error as e:
         print(f"{Fore.RED}XP güncelleme hatası: {e}{Style.RESET_ALL}")
@@ -613,7 +615,7 @@ mute_duration = timedelta(minutes=15)
 XP_COOLDOWN = 1  # XP kazanma cooldown'u (saniye)
 XP_PER_MESSAGE = 10  # Mesaj başına verilen XP
 XP_PENALTY = 50  # Uyarı başına kaybedilen XP
-LEVEL_ROLES = {1: "role1_id", 2: "role2_id", 3: "role3_id"}
+LEVEL_ROLES = {5: "role5_id", 15: "role15_id", 25: "role25_id"}
 
 # Küfür listesi
 kufurler = [
@@ -624,11 +626,15 @@ kufurler = [
     "karını", "bacını", "sürtük", "pic", "piç"
 ]
 
+# Küfür regex patternleri
+kufur_patterns = [re.compile(rf'\b{re.escape(k)}\b', re.IGNORECASE) for k in kufurler]
+
 # Flood kontrol
 user_messages = {}
+afk_users = {}
+
 @tree.command(name="soru", description="GPT-4 API ile etkileşim kurar")
 async def soru(interaction: discord.Interaction, mesaj: str):
-    # Mesaj uzunluğu kontrolü (Discord'un 2000 karakter sınırına göre)
     if len(mesaj) > 1500:
         await interaction.response.send_message(
             "❌ Soru çok uzun! Maksimum 1500 karakter kabul edebilirim.", 
@@ -649,11 +655,9 @@ async def soru(interaction: discord.Interaction, mesaj: str):
             
         cevap = response.text.strip()
         
-        # Discord'un 2000 karakter sınırına uygun hale getirme
         if len(cevap) > 1950:
             cevap = cevap[:1950] + "\n[...] (devamı kısaltıldı)"
         
-        # Formatlı yanıt
         await interaction.followup.send(
             f"**Soru:** {mesaj}\n\n"
             f"**Cevap:**\n{cevap}"
@@ -664,11 +668,6 @@ async def soru(interaction: discord.Interaction, mesaj: str):
     except requests.exceptions.RequestException as e:
         await interaction.followup.send(f"⚠️ Hata oluştu: {str(e)}")
         print(f"{Fore.RED}Soru komutu hatası: {e}{Style.RESET_ALL}")
-       
-    
-
-# AFK Sistemi
-afk_users = {}
 
 @tree.command(name="sync")
 async def sync(interaction: discord.Interaction):
@@ -766,24 +765,23 @@ def parse_duration(sure: str) -> timedelta:
 def is_flood(guild_id: int, user_id: int, limit=5, period=10) -> bool:
     now = datetime.now(timezone.utc)
     
-    # Kullanıcı mesaj geçmişini al veya oluştur
     if guild_id not in user_messages:
         user_messages[guild_id] = {}
     if user_id not in user_messages[guild_id]:
         user_messages[guild_id][user_id] = []
     
-    # Eski mesajları temizle
     user_messages[guild_id][user_id] = [
         t for t in user_messages[guild_id][user_id] 
         if (now - t).total_seconds() <= period
     ]
     
-    # Yeni mesajı ekle
     user_messages[guild_id][user_id].append(now)
     
-    # Flood kontrolü
     return len(user_messages[guild_id][user_id]) > limit
 
+def contains_kufur(content: str) -> bool:
+    content_lower = content.lower()
+    return any(pattern.search(content_lower) for pattern in kufur_patterns)
 
 async def handle_level_up(guild: discord.Guild, user: discord.Member, old_level: int, new_level: int):
     if old_level >= new_level:
@@ -793,10 +791,10 @@ async def handle_level_up(guild: discord.Guild, user: discord.Member, old_level:
     if not config:
         return
     
-    # Level rol atama
+    # Yeni level rol atama (5, 15, 25)
     for req_level, role_key in LEVEL_ROLES.items():
         role_id = config.get(role_key)
-        if role_id and new_level >= req_level:
+        if role_id and new_level >= req_level and old_level < req_level:
             role = guild.get_role(role_id)
             if role and role not in user.roles:
                 try:
@@ -816,7 +814,6 @@ async def handle_level_up(guild: discord.Guild, user: discord.Member, old_level:
     )
     embed.set_thumbnail(url=user.display_avatar.url)
     
-    # Duyuru kanallarına gönder
     for channel_id in announcement_channel_ids:
         channel = guild.get_channel(channel_id)
         if channel:
@@ -825,7 +822,6 @@ async def handle_level_up(guild: discord.Guild, user: discord.Member, old_level:
             except Exception as e:
                 print(f"{Fore.RED}Duyuru kanalına gönderim hatası: {e}{Style.RESET_ALL}")
     
-    # Log kanalına gönder
     if log_channel_id:
         log_channel = guild.get_channel(log_channel_id)
         if log_channel:
@@ -865,7 +861,7 @@ async def on_message(message):
 
     guild_id = message.guild.id
     user_id = message.author.id
-    content = message.content.lower()
+    content = message.content
 
     # Immune kullanıcı kontrolü
     if is_immune(guild_id, user_id):
@@ -876,7 +872,6 @@ async def on_message(message):
     current_time = time.time()
     last_xp_time = None
     
-    # Son mesaj zamanını kontrol et
     conn = create_connection()
     if conn:
         try:
@@ -893,38 +888,32 @@ async def on_message(message):
         finally:
             conn.close()
     
-    # XP kazanma kontrolü
     should_gain_xp = True
     if last_xp_time and (current_time - last_xp_time) < XP_COOLDOWN:
         should_gain_xp = False
     
-    # XP ver
     if should_gain_xp:
         xp, level = get_user_level(guild_id, user_id)
         new_xp = xp + XP_PER_MESSAGE
         new_level = calculate_level(new_xp)
         
-        # Level atlama kontrolü
         if new_level > level:
             await handle_level_up(message.guild, message.author, level, new_level)
         
         set_user_level(guild_id, user_id, new_xp, new_level, current_time)
 
-    # Küfür kontrolü
-    if any(kufur in content.split() for kufur in kufurler):
+    # Küfür kontrolü (regex ile geliştirilmiş)
+    if contains_kufur(content):
         try:
             await message.delete()
         except Exception as e:
             print(f"{Fore.RED}Mesaj silme hatası: {e}{Style.RESET_ALL}")
 
-        # Uyarı ekle
         count = add_warning(guild_id, user_id)
         add_mod_history(guild_id, user_id, "UYARI", bot.user.id, "Küfür tespit edildi")
 
-        # XP cezası
         new_xp, _ = update_user_xp(guild_id, user_id, -XP_PENALTY)
         
-        # Uyarı embedi
         embed = embed_message(
             title="🚨 Küfür Tespit Edildi!",
             description=f"{message.author.mention} adlı kullanıcı küfür etti ve uyarıldı.\n"
@@ -935,11 +924,10 @@ async def on_message(message):
         await message.channel.send(embed=embed, delete_after=10)
         await log_gonder(guild_id, embed)
 
-        # Uyarı sınırı aşılırsa mute
         if count >= warn_limit:
             if message.guild.me.guild_permissions.moderate_members:
                 try:
-                    await message.author.timeout(duration=mute_duration)
+                    await message.author.timeout(mute_duration)
                     add_mod_history(guild_id, user_id, "MUTE", bot.user.id, "3 uyarı sınırı aşımı")
                     
                     embed2 = embed_message(
@@ -950,7 +938,6 @@ async def on_message(message):
                     await message.channel.send(embed=embed2)
                     await log_gonder(guild_id, embed2)
                     
-                    # Uyarıları sıfırla
                     conn = create_connection()
                     if conn:
                         try:
@@ -975,7 +962,6 @@ async def on_message(message):
         except Exception as e:
             print(f"{Fore.RED}Mesaj silme hatası: {e}{Style.RESET_ALL}")
         
-        # XP cezası
         new_xp, _ = update_user_xp(guild_id, user_id, -XP_PENALTY)
         
         embed = embed_message(
@@ -995,7 +981,6 @@ async def on_message(message):
             except Exception as e:
                 print(f"{Fore.RED}Mesaj silme hatası: {e}{Style.RESET_ALL}")
             
-            # XP cezası
             new_xp, _ = update_user_xp(guild_id, user_id, -XP_PENALTY)
             
             embed = embed_message(
@@ -1007,19 +992,23 @@ async def on_message(message):
             await message.channel.send(embed=embed, delete_after=10)
             await log_gonder(guild_id, embed)
 
-    # AFK kontrolü
-    for mention in message.mentions:
-        if mention.id in afk_users:
+    # AFK kontrolü (geliştirilmiş)
+    afk_mentions = [mention for mention in message.mentions if mention.id in afk_users]
+    if afk_mentions:
+        afk_info = []
+        for mention in afk_mentions:
             afk_msg, afk_time = afk_users[mention.id]
             delta = datetime.now(timezone.utc) - afk_time
             dakika = int(delta.total_seconds() // 60)
-            afk_embed = discord.Embed(
-                title="⏰ AFK Kullanıcı",
-                description=f"{mention.display_name} şu anda AFK.\nMesaj: {afk_msg}\nAFK süresi: {dakika} dk",
-                color=discord.Color.blue(),
-                timestamp=datetime.now(timezone.utc)
-            )
-            await message.channel.send(embed=afk_embed)
+            afk_info.append(f"{mention.display_name}: {afk_msg} ({dakika} dakikadır AFK)")
+        
+        afk_embed = discord.Embed(
+            title="⏰ AFK Kullanıcılar",
+            description="\n".join(afk_info),
+            color=discord.Color.blue(),
+            timestamp=datetime.now(timezone.utc)
+        )
+        await message.channel.send(embed=afk_embed)
 
     if message.author.id in afk_users:
         del afk_users[message.author.id]
@@ -1037,12 +1026,10 @@ async def on_message_delete(message):
     if message.author.bot or not message.guild:
         return
 
-    # Çift loglama önleme
     if message.id in deleted_messages:
         deleted_messages.remove(message.id)
         return
 
-    # Veritabanına kaydet
     log_message(
         guild_id=message.guild.id,
         channel_id=message.channel.id,
@@ -1093,7 +1080,6 @@ async def on_message_edit(before, after):
     if before.author.bot or not before.guild or before.content == after.content:
         return
 
-    # Veritabanına kaydet
     log_message(
         guild_id=before.guild.id,
         channel_id=before.channel.id,
@@ -1145,7 +1131,6 @@ async def ping(interaction: discord.Interaction):
     except Exception as e:
         await interaction.response.send_message("Ping komutunda hata oluştu.", ephemeral=True)
         print(f"{Fore.RED}Ping komutu hatası: {e}{Style.RESET_ALL}")
-
 
 @tree.command(name="durum", description="Botun durum mesajını değiştirir (sadece admin).")
 @app_commands.describe(tur="Durum tipi", mesaj="Durumda görünecek metin")
@@ -1219,7 +1204,6 @@ async def warn(interaction: discord.Interaction, user: discord.Member, reason: s
         count = add_warning(interaction.guild_id, user.id)
         add_mod_history(interaction.guild_id, user.id, "UYARI", interaction.user.id, reason)
 
-        # XP cezası
         new_xp, _ = update_user_xp(interaction.guild_id, user.id, -XP_PENALTY)
         
         embed = embed_message(
@@ -1263,12 +1247,10 @@ async def clear(interaction: discord.Interaction, amount: int):
             await interaction.response.send_message("Lütfen 1 ile 100 arasında bir sayı girin.", ephemeral=True)
             return
         
-        # Geçmiş mesajları al ve sil
         deleted = await interaction.channel.purge(limit=amount)
         
-        # Silinen mesajları veritabanına kaydet ve çift log önle
         for msg in deleted:
-            deleted_messages.add(msg.id)  # Çift log önleme için ekle
+            deleted_messages.add(msg.id)
             if not msg.author.bot:
                 log_message(
                     guild_id=interaction.guild_id,
@@ -1286,7 +1268,7 @@ async def clear(interaction: discord.Interaction, amount: int):
             description=f"{interaction.user.mention}, {len(deleted)} mesajı sildi.",
             color=discord.Color.dark_gold())
         await log_gonder(interaction.guild_id, embed)
-        await interaction.response.send_message(f"{len(deleted)} mesaj silindi.", ephemeral=True, delete_after=5)
+        await interaction.response.send_message(f"{len(deleted)} mesaj silindi.", ephemeral=True)
     except Exception as e:
         await interaction.response.send_message("Clear komutunda hata oluştu.", ephemeral=True)
         print(f"{Fore.RED}Clear komutu hatası: {e}{Style.RESET_ALL}")
@@ -1299,7 +1281,7 @@ async def mute(interaction: discord.Interaction, user: discord.Member, sure: str
             await interaction.response.send_message("Bu komutu kullanmak için yetkin yok.", ephemeral=True)
             return
         duration = parse_duration(sure)
-        await user.timeout(datetime.now(timezone.utc) + duration)
+        await user.timeout(duration)
         add_mod_history(interaction.guild_id, user.id, "MUTE", interaction.user.id, sure)
         
         embed = embed_message(
@@ -1638,9 +1620,9 @@ async def history(interaction: discord.Interaction, user: discord.Member):
 # --- Level Sistemi Komutları ---
 @tree.command(name="levelsistemi", description="Level sistemini ayarlar (sadece admin)")
 @app_commands.describe(
-    role1="Level 1 için rol",
-    role2="Level 2 için rol",
-    role3="Level 3 için rol",
+    role5="Level 5 için rol",
+    role15="Level 15 için rol",
+    role25="Level 25 için rol",
     kanal1="Level duyuru kanalı 1 (isteğe bağlı)",
     kanal2="Level duyuru kanalı 2 (isteğe bağlı)",
     kanal3="Level duyuru kanalı 3 (isteğe bağlı)",
@@ -1648,9 +1630,9 @@ async def history(interaction: discord.Interaction, user: discord.Member):
 )
 async def levelsistemi(
     interaction: discord.Interaction, 
-    role1: discord.Role, 
-    role2: discord.Role, 
-    role3: discord.Role, 
+    role5: discord.Role, 
+    role15: discord.Role, 
+    role25: discord.Role, 
     kanal1: discord.TextChannel = None, 
     kanal2: discord.TextChannel = None, 
     kanal3: discord.TextChannel = None,
@@ -1661,7 +1643,6 @@ async def levelsistemi(
             await interaction.response.send_message("Bu komutu kullanmak için yetkin yok.", ephemeral=True)
             return
         
-        # Kanal ID'lerini topla
         announcement_channels = []
         if kanal1: announcement_channels.append(kanal1.id)
         if kanal2: announcement_channels.append(kanal2.id)
@@ -1669,21 +1650,19 @@ async def levelsistemi(
         
         log_channel_id = log_kanal.id if log_kanal else None
         
-        # Veritabanına kaydet
         set_level_config(
             interaction.guild_id,
-            role1.id,
-            role2.id,
-            role3.id,
+            role5.id,
+            role15.id,
+            role25.id,
             announcement_channels,
             log_channel_id
         )
         
-        # Yanıt oluştur
         description = f"**Level Rolleri:**\n" \
-                     f"Level 1: {role1.mention}\n" \
-                     f"Level 2: {role2.mention}\n" \
-                     f"Level 3: {role3.mention}\n\n" \
+                     f"Level 5: {role5.mention}\n" \
+                     f"Level 15: {role15.mention}\n" \
+                     f"Level 25: {role25.mention}\n\n" \
                      f"**Duyuru Kanalları:**\n"
         
         if announcement_channels:
@@ -1715,7 +1694,6 @@ async def level(interaction: discord.Interaction, user: discord.Member = None):
         next_level_xp = xp_for_level(level + 1)
         progress = min(100, int((xp / next_level_xp) * 100)) if next_level_xp > 0 else 0
         
-        # Progress bar oluştur
         progress_bar = "[" + "■" * (progress // 10) + "□" * (10 - (progress // 10)) + "]"
         
         embed = discord.Embed(
@@ -1771,7 +1749,6 @@ async def language(
         
         set_language_roles(interaction.guild_id, tr_role.id, en_role.id, other_role.id)
         
-        # Embed oluştur
         embed = discord.Embed(
             title="🌍 Dil Rol Sistemi",
             description="Kullanıcılar aşağıdaki butonlara tıklayarak dil rollerini seçebilirler.",
@@ -1783,7 +1760,6 @@ async def language(
         embed.add_field(name="Diğer Diller", value=other_role.mention, inline=True)
         embed.set_footer(text="Lütfen iletişim dilinizi seçin")
         
-        # Butonlu view oluştur
         view = LanguageSelect({
             "role_tr": tr_role.id,
             "role_en": en_role.id,
@@ -1836,7 +1812,6 @@ async def logs(interaction: discord.Interaction, user: discord.Member, limit: in
             channel = interaction.guild.get_channel(channel_id)
             channel_text = f"#{channel.name}" if channel else f"Kanal ID: {channel_id}"
             
-            # İçeriği kısalt
             if content and len(content) > 200:
                 content = content[:197] + "..."
                 
@@ -1862,15 +1837,12 @@ async def sunucu_kur(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         guild = interaction.guild
 
-        # Rolleri oluştur
-        # Yönetici rolü (tüm yetkiler)
         admin_role = await guild.create_role(
             name="Admin",
             permissions=discord.Permissions.all(),
             reason="Sunucu kurulumu"
         )
         
-        # Moderatör rolü (temel moderasyon yetkileri)
         mod_role = await guild.create_role(
             name="Moderatör",
             permissions=discord.Permissions(
@@ -1883,7 +1855,6 @@ async def sunucu_kur(interaction: discord.Interaction):
             reason="Sunucu kurulumu"
         )
         
-        # Rehber rolü (yardım yetkileri)
         rehber_role = await guild.create_role(
             name="Rehber",
             permissions=discord.Permissions(
@@ -1894,7 +1865,6 @@ async def sunucu_kur(interaction: discord.Interaction):
             reason="Sunucu kurulumu"
         )
         
-        # Üye rolü (temel yetkiler)
         uye_role = await guild.create_role(
             name="Üye",
             permissions=discord.Permissions(
@@ -1905,32 +1875,24 @@ async def sunucu_kur(interaction: discord.Interaction):
             reason="Sunucu kurulumu"
         )
         
-        # Komutu çalıştıran kullanıcıya admin rolü ver
         await interaction.user.add_roles(admin_role)
         
-        # Kategorileri oluştur
         genel_category = await guild.create_category("GENEL", position=0)
         ses_category = await guild.create_category("SES KANALLARI", position=1)
         admin_category = await guild.create_category("ADMIN", position=2)
 
-        # Kanal izinlerini ayarla
-        # Genel kategori izinleri
         await genel_category.set_permissions(guild.default_role, view_channel=True)
         await genel_category.set_permissions(uye_role, view_channel=True)
         await genel_category.set_permissions(admin_role, manage_channels=True)
         await genel_category.set_permissions(mod_role, manage_channels=True)
 
-        # Admin kategori izinleri
         await admin_category.set_permissions(guild.default_role, view_channel=False)
         await admin_category.set_permissions(uye_role, view_channel=False)
         await admin_category.set_permissions(admin_role, view_channel=True)
         await admin_category.set_permissions(mod_role, view_channel=True)
 
-        # Ses kategorisi izinleri
         await ses_category.set_permissions(guild.default_role, view_channel=True)
         
-        # Kanalları oluştur
-        # GENEL KATEGORİSİ
         kurallar_channel = await genel_category.create_text_channel("📜-kurallar")
         duyuru_channel = await genel_category.create_text_channel("📢-duyurular")
         gelen_giden_channel = await genel_category.create_text_channel("👋-gelen-giden")
@@ -1938,27 +1900,21 @@ async def sunucu_kur(interaction: discord.Interaction):
         bot_komut_channel = await genel_category.create_text_channel("🤖-bot-komut")
         goruntulu_channel = await genel_category.create_text_channel("🖼️-görsel")
         
-        # SES KATEGORİSİ
         ses1_channel = await ses_category.create_voice_channel("🔊 Ses 1")
         ses2_channel = await ses_category.create_voice_channel("🔊 Ses 2")
         ses3_channel = await ses_category.create_voice_channel("🔊 Ses 3")
         
-        # ADMIN KATEGORİSİ
         admin_sohbet_channel = await admin_category.create_text_channel("💼-admin-sohbet")
         admin_log_channel = await admin_category.create_text_channel("📝-admin-log")
         
-        # Kanal izinlerini özelleştir
-        # Duyuru kanalı (sadece adminler yazabilir)
         await duyuru_channel.set_permissions(guild.default_role, send_messages=False)
         await duyuru_channel.set_permissions(admin_role, send_messages=True)
         await duyuru_channel.set_permissions(mod_role, send_messages=True)
         
-        # Gelen-giden kanalı (sadece bot ve adminler yazabilir)
         await gelen_giden_channel.set_permissions(guild.default_role, send_messages=False)
         await gelen_giden_channel.set_permissions(admin_role, send_messages=True)
         await gelen_giden_channel.set_permissions(mod_role, send_messages=True)
         
-        # Admin kanalları (sadece adminler görebilir)
         await admin_sohbet_channel.set_permissions(guild.default_role, view_channel=False)
         await admin_sohbet_channel.set_permissions(uye_role, view_channel=False)
         await admin_sohbet_channel.set_permissions(admin_role, view_channel=True)
@@ -1969,11 +1925,9 @@ async def sunucu_kur(interaction: discord.Interaction):
         await admin_log_channel.set_permissions(admin_role, view_channel=True)
         await admin_log_channel.set_permissions(mod_role, view_channel=True)
         
-        # Veritabanı ayarlarını güncelle
         set_autorole(guild.id, uye_role.id)
         set_log_channel(guild.id, gelen_giden_channel.id)
         
-        # Kurulum tamamlandı mesajı
         embed = discord.Embed(
             title="✅ Sunucu Kurulumu Tamamlandı",
             description="Aşağıdaki yapılar başarıyla oluşturuldu:",
@@ -1992,13 +1946,12 @@ async def sunucu_kur(interaction: discord.Interaction):
         embed.add_field(name="Otorol", value=uye_role.mention, inline=False)
         embed.add_field(name="Log Kanalı", value=gelen_giden_channel.mention, inline=False)
         
-        # Kurallar mesajı
         kurallar_embed = discord.Embed(
             title=f"📜 {guild.name} Sunucu Kuralları",
             description=(
                 "1. Küfür, argo ve hakaret yasaktır. Her türlü aşağılayıcı, rahatsız edici veya kaba dil kullanımı, yazılı veya sesli iletişimde, profil isimlerinde ve avatarlarda yasaktır.\n"
                 "2. Spam ve flood yapmak yasaktır. Aynı mesajı tekrar tekrar göndermek, gereksiz yere fazla mesaj atarak kanalları doldurmak veya anlamsız içerik paylaşmak yasaktır.\n"
-                "3. Reklam ve özel bilgi paylaşımı yasaktır. Başka sunucuların, ürünlerin, hizmetlerin, sosyal medya hesaplarının veya kişisel bilgilerin (telefon numarası, adress vb.) paylaşılması yasaktır.\n"
+                "3. Reklam ve özel bilgi paylaşımı yasaktır. Başka sunucuların, ürünlerın, hizmetlerin, sosyal medya hesaplarının veya kişisel bilgilerin (telefon numarası, adress vb.) paylaşılması yasaktır.\n"
                 "4. Din, dil, ırk ayrımcılığı ve dini/milli değerlere hakaret yasaktır. Herhangi bir din, dil, ırk, etnik köken veya kültüre yönelik ayrımcı, aşağılayıcı veya hakaret içeren ifadeler kullanmak yasaktır.\n"
                 "5. Yetkili talimatlarına uyma zorunluluğu. Sunucu yetkililerinin verdiği talimatlare uymak zorunludur. Yetkililere karşı saygısız veya karşı gelen davranışlar, uyarı veya ceza ile sonuçlanabilir.\n"
                 "6. Kışkırtıcı ve tartışma çıkarma yasaktır. Sunucuda gereksiz yere tartışma başlatmak, üyeleri kışkırtmak veya huzursuzluğa neden olacak davranışlarda bulunmak yasaktır.\n"
@@ -2026,7 +1979,6 @@ async def yardim(interaction: discord.Interaction):
             timestamp=datetime.now(timezone.utc)
         )
         
-        # Mod Komutları
         mod_commands = (
             "`/logkanal` - Log kanalı ayarla\n"
             "`/uyarilar` - Kullanıcı uyarılarını göster\n"
@@ -2041,7 +1993,6 @@ async def yardim(interaction: discord.Interaction):
             "`/logs` - Mesaj loglarını göster\n"
         )
         
-        # Genel Komutlar
         genel_commands = (
             "`/ping` - Bot gecikmesini göster\n"
             "`/avatar` - Avatar göster\n"
@@ -2055,7 +2006,6 @@ async def yardim(interaction: discord.Interaction):
             "`/level` - Level bilgisi\n"
         )
         
-        # Sistem Komutları
         sistem_commands = (
             "`/levelsistemi` - Level sistemini ayarla\n"
             "`/language` - Dil rol sistemini ayarla\n"
@@ -2064,7 +2014,6 @@ async def yardim(interaction: discord.Interaction):
             "`/oneriler` - Önerileri listele\n"
         )
         
-        # Yeni Eklenenler
         yeni_commands = (
             "`/yetkilerim` - Yetkilerinizi göster\n"
             "`/zar` - Zar at\n"
